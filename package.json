@@ -5,10 +5,16 @@
   "type": "module",
   "description": "Respiratory examination part 3 (back of the chest) in the Soft Clay style",
   "scripts": {
+    "prestart": "npm install --no-audit --no-fund",
     "start": "node render.mjs",
+    "beat3": "node render.mjs --beat 3",
+    "preview": "node render.mjs --samples 4 --width 960 --height 540 --out preview",
+    "check": "node tools/check.mjs",
     "serve": "node server.mjs"
   },
   "dependencies": {
+    "ffmpeg-static": "5.2.0",
+    "playwright-core": "1.48.2",
     "three": "0.187.0"
   }
 }

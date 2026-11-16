@@ -966,19 +966,24 @@
     // ================================================================ sound: effects in front, a quiet room bed under
     sound(k) {
       const c = style.content;
+      // verification only: window.SOUND_ISOLATE = 'perc' | 'breath' keeps just that layer (the video always uses the full mix)
+      const iso = typeof window !== 'undefined' ? window.SOUND_ISOLATE : null;
+      const want = (layer) => !iso || iso === layer;
+      // gloved hands landing on skin: soft clay squishes
+      const squish = (t, g = 0.4, f = 240) => { k.play('press', t, { gain: g * 0.5 }); k.noise(t, { dur: 0.08, color: 'pink', filter: 'bandpass', f, q: 1.2, gain: 0.1 * g }); };
       // ambience bed: fades in over the first 0.5 s and out over the last 0.5 s (no clicks where the parts join)
-      k.noise(0, { dur: D, color: 'brown', filter: 'lowpass', f: 300, gain: 0.11, a: 0.5, hold: D - 1.0, bus: 'amb' });
-      k.noise(0, { dur: D, color: 'pink', filter: 'highpass', f: 4500, gain: 0.012, a: 0.5, hold: D - 1.0, bus: 'amb' });
+      if (want('amb')) k.noise(0, { dur: D, color: 'brown', filter: 'lowpass', f: 300, gain: 0.11, a: 0.5, hold: D - 1.0, bus: 'amb' });
+      if (want('amb')) k.noise(0, { dur: D, color: 'pink', filter: 'highpass', f: 4500, gain: 0.012, a: 0.5, hold: D - 1.0, bus: 'amb' });
+      if (want('fx')) {
       // soft camera travels
       for (const [t, d] of [[2.7, 3.0], [8.6, 1.6], [12.3, 1.2], [80.9, 2.8]]) k.play('whoosh', t, { dur: d, gain: 0.3, top: 1300 });
       // the mattress creaks a little as he sits up and lies back
       k.play('roller', c.T.sitUp[0] + 0.1, { dur: 1.2, gain: 0.12 }); k.noise(c.T.sitUp[0], { dur: 1.6, color: 'pink', filter: 'bandpass', f: 600, q: 0.8, gain: 0.05, a: 0.6 });
       k.play('roller', c.T.back.lean[0] + 0.1, { dur: 1.4, gain: 0.12 }); k.noise(c.T.back.lean[0], { dur: 1.8, color: 'pink', filter: 'bandpass', f: 600, q: 0.8, gain: 0.05, a: 0.6 });
-      // gloved hands landing on skin: soft clay squishes
-      const squish = (t, g = 0.4, f = 240) => { k.play('press', t, { gain: g * 0.5 }); k.noise(t, { dur: 0.08, color: 'pink', filter: 'bandpass', f, q: 1.2, gain: 0.1 * g }); };
       squish(c.T.exp.go[1], 0.45); squish(c.T.exp.go[1] + 0.03, 0.4, 300);
       for (const s of c.TVF) squish(s.on, 0.35);
       for (const p of c.PERC) squish(p.on, 0.22, 400);
+      }
       // percussion: a resonant note on the exact frame of every strike (low, hollow, rings a little); the same both sides
       const resonant = (t, pan) => {
         k.tone(t, { f: [[0, 132], [0.02, 118], [0.3, 108]], dur: 0.42, gain: 0.34, a: 0.002, pan, verb: 0.12 });
@@ -986,15 +991,17 @@
         k.noise(t, { dur: 0.06, color: 'pink', filter: 'bandpass', f: 260, q: 1.4, gain: 0.22, a: 0.001, pan });
         k.noise(t, { dur: 0.012, filter: 'highpass', f: 2500, gain: 0.05, a: 0.001, pan });
       };
-      for (const p of c.PERC) for (const s of p.strikes) resonant(s, p.side === 'R' ? 0.18 : -0.18);
+      if (want('perc')) for (const p of c.PERC) for (const s of p.strikes) resonant(s, p.side === 'R' ? 0.18 : -0.18);
+      if (want('fx')) {
       // stethoscope: picked up, and set on the skin
       k.play('pop', c.T.aus.pick[0] + 0.32, { f: 480, gain: 0.35 });
       for (const a of [...c.AUS, ...c.VR]) k.play('tock', a.on, { f: 380, gain: 0.12 });
       k.play('pop', c.T.back.steth[0], { f: 380, gain: 0.25 });
+      }
       // VESICULAR breath sounds, only while the diaphragm is on the skin, from the same breathing schedule as the chest:
       // a soft rustle that grows through the whole of inspiration and fades early in expiration (shorter and quieter),
       // with no gap between them. Equal on both sides.
-      for (const a of [...c.AUS]) {
+      if (want('breath')) for (const a of [...c.AUS]) {
         const br = c.BREATHS.find((b) => Math.abs(b.t0 - a.breath[0]) < 1e-6);
         if (!br) continue;
         const ti = br.t0, te = br.t0 + (br.t1 - br.t0) * br.insp, tend = br.t1, g = a.full ? 0.5 : 0.42, pan = a.side === 'R' ? 0.15 : -0.15;
@@ -1004,6 +1011,7 @@
         const exDur = Math.min(a.off - te, (tend - te) * 0.45);
         k.noise(te, { dur: exDur, color: 'pink', filter: 'bandpass', f: [[0, 520], [exDur, 380]], q: 0.6, gain: g * 0.45, a: 0.04, pan });
       }
+      if (want('fx')) {
       // the clock buds in for the sped-up run, ticks, and goes
       const q0 = c.AUS[2].on - 0.25, q1 = c.AUS[c.AUS.length - 1].off;
       k.play('pop', q0 - 0.2, { f: 560, gain: 0.3 });
@@ -1011,6 +1019,7 @@
       k.play('pop', q1 + 0.05, { f: 420, gain: 0.22 });
       // lying back: the stethoscope goes, hands back to rest
       squish(c.T.back.hands[1] - 0.1, 0.3);
+      }
     },
   };
   root.RESP3 = style;

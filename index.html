@@ -47,6 +47,8 @@
   const LIVE = +(qs.get('live') || 3);                       // samples while playing
   const FULL = +(qs.get('samples') || style.render.samples);  // samples for a still or a rendered frame
   const S = await K.run(canvas, style, { samples: FULL, width: W, height: H });
+  // preview only (?shadow=512): smaller shadow maps for slow software WebGL; the final render keeps the style's own
+  if (qs.has('shadow')) { const n = +qs.get('shadow'); S.scene.traverse((o) => { if (o.isLight && o.shadow) { o.shadow.mapSize.set(n, n); if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } } }); }
   window.S = S; window.DURATION = style.duration;
   window.seek = (t, samples) => S.seek(t, samples);
   document.getElementById('msg').remove();

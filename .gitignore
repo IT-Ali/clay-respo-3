@@ -4,3 +4,5 @@ out/
 *.log
 storyboard/img/*.json
 *.zip
+preview/
+out/
