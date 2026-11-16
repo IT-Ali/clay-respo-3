@@ -357,15 +357,19 @@
       const ST = { arm: {}, ex: {} };
       ST.arm.rest = { R: restArm('R'), L: restArm('L') };
       const applyArm = (side, st) => P.setArm(side, st.wrist, st.quat, st.pose, st.pole);
-      // folded: each hand on the opposite upper arm, the right forearm over the left (trunk-local, converted each pose)
+      // folded (trunk-local): each upper arm runs down his side from the shoulder to the bent elbow at the front of his
+      // lower chest; the forearms cross in front of him (the right over the left) and each hand holds the other arm by the elbow
+      const foldPose = { all: [0.42, 0.55, 0.32], spread: 0.25, thumb: [0.4, 0.2, 0.25, 0.15] };
       const FOLD = {
-        R: { wrist: V(0.95, 3.62, 1.72), f: V(1, 0.25, -0.5), d: V(0.3, 0.1, 1), pose: { all: [0.3, 0.42, 0.26], spread: 0.55, thumb: [0.35, 0.2, 0.2, 0.15] }, pole: V(-0.15, -1, 0.45) },
-        L: { wrist: V(-0.95, 3.3, 1.55), f: V(-1, 0.3, -0.5), d: V(-0.3, 0.1, 1), pose: { all: [0.3, 0.42, 0.26], spread: 0.55, thumb: [0.35, 0.2, 0.2, 0.15] }, pole: V(0.15, -1, 0.4) },
+        R: { E: V(-1.5, 2.4, 1.3), fd: V(1, 0.24, 0.12), d: V(0.05, 0.35, 1), pose: foldPose },
+        L: { E: V(1.5, 2.05, 1.12), fd: V(-1, 0.16, 0.06), d: V(-0.05, 0.35, 1), pose: foldPose },
       };
       const foldArm = (side) => {
         torso.updateMatrixWorld(true);
         const F = FOLD[side], tq = torso.getWorldQuaternion(new THREE.Quaternion());
-        return { wrist: torso.localToWorld(F.wrist.clone()), quat: tq.clone().multiply(q(F.f, F.d)), pose: F.pose, pole: F.pole.clone().applyQuaternion(tq).normalize() };
+        const S0 = V(side === 'R' ? -PATIENT.DIM.shoulderX : PATIENT.DIM.shoulderX, PATIENT.DIM.shoulderY, -0.05);
+        const fd = F.fd.clone().normalize(), wrist = F.E.clone().addScaledVector(fd, PATIENT.DIM.foreArm);
+        return { wrist: torso.localToWorld(wrist), quat: tq.clone().multiply(q(fd, F.d)), pose: F.pose, pole: F.E.clone().sub(S0).applyQuaternion(tq).normalize() };
       };
       const lerpArm = (a, b, u) => ({ wrist: a.wrist.clone().lerp(b.wrist, u), quat: a.quat.clone().slerp(b.quat, u), pose: blendPose(a.pose, b.pose, u), pole: a.pole.clone().lerp(b.pole, u).normalize() });
 
@@ -379,7 +383,8 @@
         if (st.thumbQ) { th.meta.quaternion.copy(st.thumbQ[0]); th.mcp.quaternion.copy(st.thumbQ[1]); th.ip.quaternion.copy(st.thumbQ[2]); }
         a.hand.group.position.copy(st.wrist); a.hand.group.quaternion.copy(st.quat);
         a.follow(st.back);
-        if (st.sleeve) { const sd = st.sleeve.clone().normalize(), up = V(0, 1, 0), sz = new THREE.Vector3().crossVectors(sd, up).normalize(), sy = new THREE.Vector3().crossVectors(sz, sd); a.upper.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(sd, sy, sz)); }
+        if (st.sleeve === 'shoulder') { a.hand.group.updateMatrixWorld(true); const el = a.hand.group.getWorldPosition(V(0, 0, 0)).addScaledVector(st.back.clone().normalize(), a.FL); st.sleeveDir = SHO.clone().sub(el).normalize(); }
+        if (st.sleeve) { const sd = (st.sleeveDir || st.sleeve).clone().normalize(), up = V(0, 1, 0), sz = new THREE.Vector3().crossVectors(sd, up).normalize(), sy = new THREE.Vector3().crossVectors(sz, sd); a.upper.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(sd, sy, sz)); }
       };
       // hand vertices of a part, in the trunk's frame
       const wv = V(0, 0, 0);
@@ -434,7 +439,7 @@
         for (let it = 0; it < 3; it++) { place(); const m = trueGap(parts, o.deep || 0), err = m - o.gap; if (Math.abs(err) < 0.0003) break; off -= err; }   // finish on the real mesh
         place();
         const wristL = torso.worldToLocal(hand.group.getWorldPosition(V(0, 0, 0)));
-        return { wristL, qL: o.qL.clone(), pose: o.pose, thumbQ: o.thumbQ, backL: foreDir(o.qL, o.fore || (side === 'L' ? [0.35, 0.9, 0.4] : undefined), wristL, o.foreL || null), sleeveL: side === 'L' ? SLEEVE_L : SLEEVE, contact: o, offset: off };
+        return { wristL, qL: o.qL.clone(), pose: o.pose, thumbQ: o.thumbQ, backL: rightFore(wristL, o.foreOpt), sleeveL: 'shoulder', contact: o, offset: off };
       };
       // curl each finger until its pad rests on the skin (gap g)
       const curlToSkin = (side, o, keys, gap, range = [0, 1.4]) => {
@@ -459,7 +464,7 @@
         torso.updateMatrixWorld(true);
         const tq = torso.getWorldQuaternion(new THREE.Quaternion());
         const w = st.wristL.clone(); if (disp) w.add(disp);
-        return { wrist: torso.localToWorld(w), quat: tq.clone().multiply(st.qL), pose: st.pose, thumbQ: st.thumbQ, back: st.backL.clone().applyQuaternion(tq), sleeve: st.sleeveL ? st.sleeveL.clone() : null };
+        return { wrist: torso.localToWorld(w), quat: tq.clone().multiply(st.qL), pose: st.pose, thumbQ: st.thumbQ, back: st.backL.clone().applyQuaternion(tq), sleeve: st.sleeveL ? 'shoulder' : null };
       };
       // the examiner's forearm: from the wrist down to an elbow that hangs in the gap between his back and the backrest,
       // on the examiner's side; from there the sleeve runs off toward the examiner (screen right), above the backrest
@@ -483,6 +488,25 @@
           d.add(V(0, 0.12, 0).transformDirection(tinv)).normalize();
         }
         return d;
+      };
+      // Every examiner arm comes in from his RIGHT: the elbow sits beside and slightly behind his right side, above the bed
+      // and in front of the backrest, and the sleeve runs from it up to the examiner's shoulder (SHO), leaving the frame on
+      // his right (screen right in the back views). Both hands, also the one reaching across to his left side.
+      const SHO = V(-2.2, 16.0, 7.6);
+      const rightFore = (wristL, o = {}) => {
+        torso.updateMatrixWorld(true);
+        const tinv = new THREE.Matrix4().copy(torso.matrixWorld).invert(), W0 = torso.localToWorld(wristL.clone());
+        const E = V(o.x == null ? -3.6 : o.x, W0.y + (o.dy == null ? -0.5 : o.dy), K.clamp(W0.z + (o.dz == null ? 2.4 : o.dz), o.zmin == null ? 1.3 : o.zmin, 3.8));
+        let d = null;
+        for (let it = 0; it < 40; it++) {
+          d = E.clone().sub(W0).normalize();
+          const el = W0.clone().addScaledVector(d, 2.7);
+          let bad = false;
+          if ((el.x + 2) * 0.7071 + (el.y - 6) * 0.7071 < 0.85 || el.y < Dm.Ym + 1.5) { E.y += 0.12; bad = true; }      // above the backrest and the bed
+          for (let k = 0.5; k <= 2.7 && !bad; k += 0.22) { const pl = W0.clone().addScaledVector(d, k).applyMatrix4(tinv); if (trunkSD(pl) < 0.5) { E.x -= 0.12; bad = true; } }   // clear of his trunk
+          if (!bad) break;
+        }
+        return d.transformDirection(tinv);
       };
       // directions in the trunk frame: up (+y), out of his back (-z), his right (-x)
       const TL = { up: V(0, 1, 0), outB: V(0, 0, -1) };
@@ -516,19 +540,21 @@
       const expansionState = (side, spread, b) => {
         setBreath(b); const deep = deepOfB(b);
         const s0 = sx(side), sT = RIB10(0.15) + 0.02, shift = 0.25 * spread;   // thumbs at the 10th rib; each moves about 2.5 cm out in a deep breath
-        // the hand: palm on the posterolateral lower ribs, fingers pointing up and out round his side
-        const fDir = V(s0 * 0.8, 0.55, 0.22).normalize();
-        const site = backHit(s0 * (1.12 + shift), sT + 0.42);
+        // the hand: palm flat on the lower ribs at the back of his side, fingers together lying across the side of his lower
+        // chest and curling forward round his flank toward his front (a little upward, never toward his shoulder)
+        const fDir = V(s0 * 0.9, 0.3, 0.3).normalize();
+        const site = backHit(s0 * (1.2 + shift), sT - 0.05);
         const qL = segQ(fDir, site.n);
-        const pose = { curl: { index: [0.05, 0.06, 0.03], middle: [0.05, 0.06, 0.03], ring: [0.05, 0.06, 0.03], little: [0.06, 0.07, 0.04] }, spread: 0.55, thumb: [0.0, 0, 0.05, 0.02] };
-        // the forearms drop away to each side of him (not toward the camera); both sleeves then run off toward the examiner
-        const o = { pose, qL, pL: site.p, n: site.n, contact: 'palm', parts: ['palm'], gap: EXP_GAP, deep, foreL: V(s0 * 0.5, -0.82, -0.28) };
+        const pose = { curl: { index: [0.05, 0.06, 0.03], middle: [0.05, 0.06, 0.03], ring: [0.05, 0.06, 0.03], little: [0.06, 0.07, 0.04] }, spread: 0.06, thumb: [0.0, 0, 0.05, 0.02] };
+        // the forearm comes in from his right: the right hand's from beside and slightly behind his right side, the left
+        // hand's reaching across behind his back from the same side
+        const o = { pose, qL, pL: site.p, n: site.n, contact: 'palm', parts: ['palm'], gap: EXP_GAP, deep, foreOpt: side === 'R' ? { dz: 1.6, x: -4.0, dy: -0.15, zmin: 2.4 } : { dz: 2.5, dy: -0.25 } };
         solveLocal(side, o);
-        o.pose = Object.assign({}, pose, { curl: curlToSkin(side, o, PK, 0.006, [-0.1, 1.2]) });
+        o.pose = Object.assign({}, pose, { curl: curlToSkin(side, o, PK, 0.006, [-0.1, 1.6]) });
         let st = solveLocal(side, o);
         // the thumb: pointing at the midline along the 10th rib, its pad hovering THUMB_HOVER over the skin
         const hand = EX[side].hand, tip = backHit(s0 * (0.25 + shift), sT);
-        const nW = tip.n.clone().transformDirection(torso.matrixWorld), dirW = V(-s0, -0.06, 0).transformDirection(torso.matrixWorld);
+        const nW = tip.n.clone().transformDirection(torso.matrixWorld), dirW = V(-s0, 0.3, 0).transformDirection(torso.matrixWorld);
         let lift = THUMB_HOVER;
         for (let it = 0; it < 5; it++) {
           hand.pose(o.pose); HANDS.place(hand, 'palm', torso.localToWorld(o.pL.clone().addScaledVector(o.n, st.offset)), toWorldQ(qL)); hand.group.updateMatrixWorld(true);
@@ -548,9 +574,9 @@
         // the examiner's right hand for every site (moved from right to left): upper zone, palm just below the top of the
         // shoulder with the fingers up and over it; middle and lower zones, fingers up his back
         const s0 = sx(side), Lv = LEVELS[lv - 1], site = lv === 1 ? backHit(s0 * Lv.x, Lv.s - 0.1) : SITES[side + lv];
-        const fDir = (lv === 1 ? V(-s0 * 0.12, 1, 0) : lv === 3 ? V(-s0 * 0.1, 1, 0) : V(s0 * 0.08, 1, 0)).normalize();
+        const fDir = (lv === 1 ? V(0.15, 1, 0) : V(0.38, 0.92, 0)).normalize();
         const qL = segQ(fDir, site.n);
-        const o = { pose: flatPose, qL, pL: site.p, n: site.n, contact: 'palm', parts: ['palm'], gap: 0.005, fore: [0.5, 0.75, 0.45] };
+        const o = { pose: flatPose, qL, pL: site.p, n: site.n, contact: 'palm', parts: ['palm'], gap: 0.005 };
         solveLocal('R', o);
         o.pose = Object.assign({}, flatPose, { curl: curlToSkin('R', o, PK, 0.005, [-0.15, lv === 1 ? 1.9 : 0.9]) });
         return solveLocal('R', o);
@@ -561,10 +587,11 @@
       const plexPose = { curl: { index: [-0.42, 0.06, 0.04], middle: [0.0, 0.0, 0.0], ring: [-0.42, 0.06, 0.04], little: [-0.4, 0.08, 0.05] }, spread: 0.0, thumb: [-0.1, 0, 0.05, 0.02] };
       const plexState = (side, lv) => {
         const site = SITES[side + lv];
-        // the rib space runs across his back, sloping down toward his side; the fingers point to his right (screen right)
-        const fDir = (side === 'R' ? V(-1, -0.25, 0) : V(-1, 0.25, 0)).normalize();
+        // the rib space runs across his back, sloping down toward his side; the fingers point to his left (screen left), so
+        // the left hand lies across his back from his right and its forearm leaves to his right
+        const fDir = (side === 'R' ? V(1, 0.25, 0) : V(1, -0.25, 0)).normalize();
         const qL = segQ(fDir, site.n);
-        const o = { pose: plexPose, qL, pL: site.p, n: site.n, contact: 'middleMidBack', parts: ['middle'], gap: 0.006, fore: [0.3, 0.9, 0.42] };
+        const o = { pose: plexPose, qL, pL: site.p, n: site.n, contact: 'middleMidBack', parts: ['middle'], gap: 0.006 };
         // the middle finger's middle phalanx centred on the site: place its back over the site, then settle the whole finger on the skin
         let st = solveLocal('L', o);
         // straighten the middle finger onto the skin (it follows the curve of his back a little)
@@ -579,7 +606,7 @@
         const plex = ST.ex.plex[side + lv];
         const hl = EX.L.hand; applyEx('L', localToWorldSt(plex)); hl.group.updateMatrixWorld(true);
         const target = torso.worldToLocal(hl.world('middleMidBack')), n = SITES[side + lv].n.clone();
-        const fDir = V(side === 'R' ? 0.12 : 0.25, 1, 0).addScaledVector(n, -0.05).normalize();
+        const fDir = V(0.4, 0.92, 0).addScaledVector(n, -0.05).normalize();      // from below and to his right, fingers up and to his left
         const qL0 = segQ(fDir, n.clone().addScaledVector(fDir, -n.dot(fDir)));
         const hand = EX.R.hand; hand.pose(strikePose);
         HANDS.place(hand, 'middleTip', torso.localToWorld(target.clone().addScaledVector(n, 0.004)), toWorldQ(qL0));
@@ -588,7 +615,7 @@
         // loose wrist: raised = the hand turned back about the wrist (its own palm-width axis), so the tip lifts off the back
         const axis = V(0, 0, 1).applyQuaternion(qL0).normalize();
         const qL = new THREE.Quaternion().setFromAxisAngle(axis, 0.42 * lift).multiply(qL0);
-        return { wristL, qL, pose: strikePose, backL: foreDir(qL0, [0.6, 0.6, 0.5]), sleeveL: SLEEVE, tipTarget: target };
+        return { wristL, qL, pose: strikePose, backL: rightFore(wristL), sleeveL: 'shoulder', tipTarget: target };
       };
 
       // (d) the stethoscope: a two-sided chest piece (diaphragm and bell), held by the right hand, the diaphragm pressed
@@ -636,7 +663,7 @@
         const pieceQL = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAx, yAx, zAx));
         const pieceL = site.p.clone().addScaledVector(n, -PRESS);
         // the right hand comes from below: index and middle finger pads on the back of the chest piece, pressing it on
-        const fDir = V(side === 'R' ? -0.1 : 0.15, 1, 0).addScaledVector(n, -0.12).normalize();
+        const fDir = V(0.45, 0.9, 0).addScaledVector(n, -0.12).normalize();
         const qL = segQ(fDir, n.clone().addScaledVector(fDir, -n.dot(fDir)));
         const hand = EX.R.hand; hand.pose(stethPose);
         const topL = pieceL.clone().addScaledVector(n, 0.192).addScaledVector(xAx, -0.03);
@@ -646,11 +673,21 @@
         hand.group.position.add(torso.localToWorld(shift.clone()).sub(torso.localToWorld(V(0, 0, 0))));
         hand.group.updateMatrixWorld(true);
         const wristL = torso.worldToLocal(hand.group.getWorldPosition(V(0, 0, 0)));
-        return { wristL, qL, pose: stethPose, backL: foreDir(qL, [0.6, 0.6, 0.5]), sleeveL: SLEEVE, pieceL, pieceQL, press: { c: site.p.clone(), n: n.clone(), R: STETH.R, depth: PRESS } };
+        return { wristL, qL, pose: stethPose, backL: rightFore(wristL), sleeveL: 'shoulder', pieceL, pieceQL, press: { c: site.p.clone(), n: n.clone(), R: STETH.R, depth: PRESS } };
       };
 
       // ---------------- build the states
       ST.ex.rest = { R: exSolve('R', exRest('R')), L: exSolve('L', exRest('L')) };
+      // while he sits up: both gloved hands rest palm down on the sheet beside his right hip, fingers together toward him
+      {
+        const hs2 = (x, z) => SH2.heightAt(x, z);
+        const restSit = (side) => {
+          const x = side === 'R' ? 1.1 : -0.15, z = side === 'R' ? 3.35 : 3.0;
+          let top = 0; for (let k = -3; k <= 3; k++) top = Math.max(top, hs2(x + 0.25 * k, z), hs2(x, z + 0.25 * k));
+          return exSolve(side, { contact: 'palm', at: V(x, top + 0.02, z), quat: q(V(side === 'R' ? -0.2 : 0.2, -0.04, -1), V(0, 1, 0)), pose: { all: [0.1, 0.14, 0.08], spread: 0.12, thumb: [0.3, 0.05, 0.1, 0.05] }, back: V(side === 'R' ? 0.15 : -0.15, 0.25, 1) });
+        };
+        ST.ex.restSit = { R: restSit('R'), L: restSit('L') };
+      }
       setSit(1); shapeBack(1, 1, 1, 0);
       const BK = {};
       // calibrate: the thumb tips move apart by 5 cm in total between breathed out and breathed in
@@ -689,7 +726,10 @@
       const ex = {};   // per-hand keyed timelines built below: [{ t, st: (tq) => worldState }]
       const KEYS = { R: [], L: [] };
       const key = (side, t, fn) => KEYS[side].push({ t, fn });
-      const restKey = (side, t) => key(side, t, () => restW(side));
+      // one function per resting state, so two rest keys in a row hold still (they are the same state)
+      const REST_FN = { R: () => restW('R'), L: () => restW('L') }, SITREST_FN = { R: () => ST.ex.restSit.R, L: () => ST.ex.restSit.L };
+      const restKey = (side, t) => key(side, t, t <= T.sitHold[1] + 0.01 || t >= T.back.hands[1] - 0.01 ? REST_FN[side] : SITREST_FN[side]);
+      for (const sd of sides) { restKey(sd, T.sitHold[1]); key(sd, T.sitUp[1] + 0.3, SITREST_FN[sd]); key(sd, T.back.hands[0], SITREST_FN[sd]); }
       // expansion
       const expSpread = (tq) => { const b = breathAt(tq).b; return K.clamp((b - 0) / 4.2); };
       for (const sd of sides) {
@@ -730,7 +770,7 @@
       for (const sd of sides) KEYS[sd].sort((a, b) => a.t - b.t);
       // between two different keys: lift off, travel relaxed (fingers together, palm toward the back), settle into the next
       const lerpW = (a, b, u) => {
-        const o = { wrist: a.wrist.clone().lerp(b.wrist, u), quat: a.quat.clone().slerp(b.quat, u), pose: blendPose(a.pose, b.pose, u), back: a.back.clone().lerp(b.back, u).normalize() };
+        const o = { wrist: a.wrist.clone().lerp(b.wrist, u), quat: a.quat.clone().slerp(b.quat, u), pose: blendPose(a.pose, b.pose, u), back: a.back.clone().lerp(b.back, u).normalize(), sleeve: a.sleeve || b.sleeve || null };
         if (a.thumbQ || b.thumbQ) { const ta = a.thumbQ || null, tb = b.thumbQ || null; if (ta && tb) o.thumbQ = ta.map((qq, i) => qq.clone().slerp(tb[i], u)); else if (u < 0.5 && ta) o.thumbQ = ta; else if (tb && u >= 0.5) o.thumbQ = tb; }
         return o;
       };
