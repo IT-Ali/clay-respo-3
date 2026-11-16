@@ -1,0 +1,14 @@
+{
+  "name": "resp3-soft-clay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Respiratory examination part 3 (back of the chest) in the Soft Clay style",
+  "scripts": {
+    "start": "node render.mjs",
+    "serve": "node server.mjs"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  }
+}

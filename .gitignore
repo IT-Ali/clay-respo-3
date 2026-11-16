@@ -1,0 +1,4 @@
+node_modules/
+storyboard/img/*.png
+out/
+*.log

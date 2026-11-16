@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Respiratory exam, part 3: the back</title>
+<link rel="stylesheet" href="vendor/fonts/fredoka.css">
+<style>
+  :root { --bg: #0d3a3d; --bar: #0a2c2e; --ink: #f8eedb; --accent: #f2b33d; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: "Fredoka", system-ui, sans-serif; overflow: hidden; }
+  #wrap { position: absolute; inset: 0 0 52px 0; display: flex; align-items: center; justify-content: center; }
+  canvas#c { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #bar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; display: flex; gap: 12px; align-items: center; padding: 0 16px; background: var(--bar); box-sizing: border-box; }
+  #bar button { background: none; border: 1px solid #2f6d70; color: var(--ink); border-radius: 8px; font: 500 15px "Fredoka", sans-serif; padding: 6px 12px; cursor: pointer; min-width: 44px; }
+  #bar button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  #scrub { flex: 1; accent-color: var(--accent); min-width: 0; }
+  #time { font: 500 15px "Fredoka", sans-serif; min-width: 104px; text-align: right; font-variant-numeric: tabular-nums; }
+  #msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; pointer-events: none; }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="1920" height="1080"></canvas></div>
+<div id="msg">Building the set…</div>
+<div id="bar">
+  <button id="play" aria-label="Play or pause">Play</button>
+  <input id="scrub" type="range" min="0" max="1" step="0.001" value="0" aria-label="Time">
+  <span id="time">0.00 s</span>
+  <button id="snd" aria-pressed="true" aria-label="Sound on or off">Sound</button>
+  <button id="cap" aria-pressed="true" aria-label="Captions on or off">Captions</button>
+  <button id="loop" aria-pressed="true" aria-label="Loop">Loop</button>
+</div>
+<script type="module">
+  import * as THREE from 'three';
+  window.THREE = THREE;
+  const qs = new URLSearchParams(location.search);
+  const load = (src) => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('failed to load ' + src)); document.head.appendChild(s); });
+  // the STAGE kit, the SOUND kit, TEXT3D (after STAGE), then shared/ in the order of shared/README.md, then this part
+  for (const src of ['lib/stage.js', 'lib/sound.js', 'lib/text3d.js', 'shared/clay.js', 'shared/set.js', 'shared/bed.js', 'shared/props.js', 'shared/hands.js',
+    'shared/patient.js', 'shared/sheet.js', 'shared/caption.js', 'resp3-style.js']) await load(src);
+
+  const style = window.RESP3;
+  if (qs.has('captions')) window.CAPTIONS = qs.get('captions') !== '0';
+  const canvas = document.getElementById('c');
+  const W = +(qs.get('w') || 1920), H = +(qs.get('h') || 1080);
+  canvas.width = W; canvas.height = H;
+  const LIVE = +(qs.get('live') || 3);                       // samples while playing
+  const FULL = +(qs.get('samples') || style.render.samples);  // samples for a still or a rendered frame
+  const S = await K.run(canvas, style, { samples: FULL, width: W, height: H });
+  window.S = S; window.DURATION = style.duration;
+  window.seek = (t, samples) => S.seek(t, samples);
+  document.getElementById('msg').remove();
+
+  const scrub = document.getElementById('scrub'), timeEl = document.getElementById('time'), playB = document.getElementById('play');
+  let t = +(qs.get('t') || 0), playing = false, last = 0, stopSound = null, soundOn = true, loop = true;
+  const show = () => { scrub.value = t / style.duration; timeEl.textContent = t.toFixed(2) + ' s'; };
+  const stop = () => { if (stopSound) { stopSound(); stopSound = null; } };
+  const start = () => { stop(); if (soundOn) stopSound = SOUND.live((k) => style.sound(k), t, { voiceover: false }); };
+  const draw = (n) => { S.seek(t, n); show(); };
+  const frame = (now) => {
+    if (!playing) return;
+    t += Math.min(0.1, (now - last) / 1000); last = now;
+    if (t >= style.duration) { if (loop) { t = 0; start(); } else { t = style.duration; playing = false; playB.textContent = 'Play'; stop(); } }
+    draw(LIVE);
+    requestAnimationFrame(frame);
+  };
+  playB.onclick = () => { playing = !playing; playB.textContent = playing ? 'Pause' : 'Play'; if (playing) { last = performance.now(); start(); requestAnimationFrame(frame); } else { stop(); draw(FULL); } };
+  scrub.oninput = () => { t = +scrub.value * style.duration; stop(); if (playing) start(); draw(LIVE); };
+  scrub.onchange = () => { if (!playing) draw(FULL); };
+  const toggle = (id, fn) => { const b = document.getElementById(id); b.onclick = () => { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on); fn(on); }; };
+  toggle('snd', (on) => { soundOn = on; if (!on) stop(); else if (playing) start(); });
+  toggle('cap', (on) => { window.CAPTIONS = on; if (!playing) draw(FULL); });
+  toggle('loop', (on) => { loop = on; });
+  if (qs.get('still') !== '1') draw(LIVE);
+  window.READY = true;
+</script>
+</body>
+</html>
