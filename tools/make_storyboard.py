@@ -24,7 +24,7 @@ def gaps(name):
     for r in rows:
         if 'gap_mm' in r:
             g = r['gap_mm']
-            state = 'ok' if 0 <= g <= 1.5 else ('lift' if g > 1.5 else 'bad')
+            state = 'ok' if -0.2 <= g <= 1.5 else ('lift' if g > 1.5 else 'bad')
             li.append(f'<li class="g {state}"><span>{html.escape(r["part"])}</span><b>{g:.1f} mm</b></li>')
         elif 'cm' in r:
             li.append(f'<li class="g ok"><span>{html.escape(r["part"])}</span><b>{r["cm"]:.1f} cm</b></li>')
@@ -150,8 +150,8 @@ page = f'''<title>Back of the Chest Storyboard</title>
   --bg: #eef3f2; --panel: #ffffff; --fg: #1f2c4d; --muted: #5a6b74; --line: #d3dfdd; --accent: #12808a; --mark: #c9861a; --ok: #2f8f5b; --bad: #c2412d;
   --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif; --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }}
-@media (prefers-color-scheme: dark) {{ :root:not([data-theme="light"]) {{ --bg: #0c2426; --panel: #12333600; --fg: #e8efe9; --muted: #9db3b3; --line: #24494c; --accent: #57c3ca; --mark: #f2b33d; --ok: #6ccf97; --bad: #ff8a73; color-scheme: dark; }} }}
-:root[data-theme="dark"] {{ --bg: #0c2426; --panel: #12333600; --fg: #e8efe9; --muted: #9db3b3; --line: #24494c; --accent: #57c3ca; --mark: #f2b33d; --ok: #6ccf97; --bad: #ff8a73; color-scheme: dark; }}
+@media (prefers-color-scheme: dark) {{ :root:not([data-theme="light"]) {{ --bg: #0c2426; --panel: #123336; --fg: #e8efe9; --muted: #9db3b3; --line: #24494c; --accent: #57c3ca; --mark: #f2b33d; --ok: #6ccf97; --bad: #ff8a73; color-scheme: dark; }} }}
+:root[data-theme="dark"] {{ --bg: #0c2426; --panel: #123336; --fg: #e8efe9; --muted: #9db3b3; --line: #24494c; --accent: #57c3ca; --mark: #f2b33d; --ok: #6ccf97; --bad: #ff8a73; color-scheme: dark; }}
 body {{ background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }}
 .wrap {{ max-width: 1180px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }}
 h1, h2, h3 {{ font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; }}
