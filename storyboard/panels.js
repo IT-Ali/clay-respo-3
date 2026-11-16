@@ -146,7 +146,7 @@
     if (p.beat) {
       window.CAM_OVERRIDE = null; window.REVIEW_REPORT = [];
       // storyboard only: the 5 cm measurement on the expansion frame
-      window.REVIEW = p.arrow ? { captions: true, build: () => { const a = W.EX.R.hand.world('thumbTip'), b = W.EX.L.hand.world('thumbTip'); return [{ type: 'arrow', a: a.clone().add(V(-0.12, -0.05, 0)), b: b.clone().add(V(-0.12, -0.05, 0)), both: true, color: '#ffffff', label: 'storyboard only: thumbs ' + (a.distanceTo(b) * 10).toFixed(1) + ' cm apart (5 cm wider than breathed out)', dx: -330, dy: 70, size: 24, w: 4 }]; } } : null;
+      window.REVIEW = p.arrow ? { captions: true, build: () => { const a = W.EX.R.hand.world('thumbTip'), b = W.EX.L.hand.world('thumbTip'); return [{ type: 'arrow', a: a.clone().add(V(-0.12, -0.05, 0)), b: b.clone().add(V(-0.12, -0.05, 0)), both: true, color: '#ffffff', label: 'storyboard only: thumbs ' + (a.distanceTo(b) * 10).toFixed(1) + ' cm apart (5 cm wider than breathed out)', dx: 24, dy: 95, size: 24, w: 4 }]; } } : null;
       return p.t;
     }
     window.seek(p.t, 1);                       // pose the world at the panel's time first (cameras that read the pose)
