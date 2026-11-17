@@ -294,10 +294,12 @@
       setSit(1); useHi(true); shapeBack(1, 1, 1, 0); seat.visible = true; P.group.updateMatrixWorld(true);
       // the sheet rests on his legs and on an invisible proxy round his hips up to the waist, its top edge just behind
       // the line of his hips, so it lies over his lap and falls round the sides of his hips onto the mattress
-      const waistProxy = CLAY.mesh(CLAY.loft([{ s: -0.2, a: 1.9, c: 1.2, d: 1.05 }, { s: 0.8, a: 1.82, c: 1.2, d: 1.02 }, { s: 1.42, a: 1.72, c: 1.22, d: 0.98 }],
+      // The proxy reaches out past his buttocks behind him, so the sheet also comes up round his hips at the back and covers
+      // the seat of the trousers up to the waist (its top, the waistband, stays far below the 10th rib and level 5).
+      const waistProxy = CLAY.mesh(CLAY.loft([{ s: -0.2, a: 1.95, c: 1.2, d: 1.42 }, { s: 0.7, a: 1.86, c: 1.2, d: 1.3 }, { s: 1.25, a: 1.76, c: 1.22, d: 1.12 }, { s: 1.55, a: 1.68, c: 1.22, d: 1.0 }],
         { axis: 'y', radial: 48, rings: 12, pow: 2.4, capStart: 0, capEnd: 0.25 }), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), torso);
       waistProxy.visible = false; P.group.updateMatrixWorld(true);
-      const sitEdge = V(-1.7, 0, 0);
+      const sitEdge = V(-2.85, 0, 0);          // the sheet's top edge behind him, so its drape starts behind his hips
       const SH2 = SHEET.build(S, { group: P.group, torso: { localToWorld: () => sitEdge.clone() }, sheetMeshes: P.sheetMeshes.filter((m) => m !== torsoMesh).concat([waistProxy]) });
       waistProxy.removeFromParent();
       SH2.mesh.visible = false; S.scene.children.filter((m) => m.name === 'sheet-hem').forEach((m, i) => { if (i > 0) m.visible = false; });
@@ -808,10 +810,11 @@
         home: H,
         side: { pos: [4.5, 15.5, 22.0], target: [-1.2, 9.5, -0.3], fov: 28, focus: [-1.6, 10.0, 0.6], aperture: 0.06 },
         round: { pos: [-6.0, 19.5, 17.5], target: [-1.6, 10.2, -0.2], fov: 28, focus: [-1.8, 10.2, 0.6], aperture: 0.05 },
-        back: { pos: [-14.0, 21.0, 6.2], target: [-1.7, 10.35, 0.15], fov: 28, focus: tW(0, 3.9, -1.0).toArray(), aperture: 0.04 },
-        backHigh: { pos: [-13.2, 21.6, 5.4], target: [-1.6, 11.0, 0.1], fov: 28, focus: tW(0, 4.6, -1.0).toArray(), aperture: 0.035 },
-        backLow: { pos: [-13.6, 19.6, 5.6], target: [-1.9, 9.6, 0.1], fov: 28, focus: tW(0, 3.0, -1.0).toArray(), aperture: 0.035 },
-        backExp: { pos: [-13.4, 19.6, 2.6], target: [-2.0, 10.0, 0.1], fov: 28, focus: tW(0, 3.0, -1.0).toArray(), aperture: 0.03 },
+        // closer and a little higher: his back from the shoulders down to the waist fills the frame
+        back: { pos: [-10.0, 19.35, 4.6], target: [-1.7, 11.0, 0.1], fov: 28, focus: tW(0, 3.6, -1.0).toArray(), aperture: 0.03 },
+        backHigh: { pos: [-9.6, 19.8, 4.1], target: [-1.6, 11.5, 0.1], fov: 28, focus: tW(0, 4.4, -1.0).toArray(), aperture: 0.026 },
+        backLow: { pos: [-10.0, 18.1, 4.3], target: [-1.9, 10.2, 0.1], fov: 28, focus: tW(0, 2.9, -1.0).toArray(), aperture: 0.026 },
+        backExp: { pos: [-10.4, 17.75, 2.2], target: [-2.0, 10.15, 0.1], fov: 28, focus: tW(0, 3.0, -1.0).toArray(), aperture: 0.024 },
         pullHigh: { pos: [-4.0, 22.0, 24.0], target: [-0.6, 8.5, -0.8], fov: 28, focus: [-0.8, 8.5, 0.4], aperture: 0.06 },
       };
       const camKeys = [
@@ -840,7 +843,7 @@
       const shadowFor = (t) => (t < 3.0 || t > 83.5 || (window.DBG && window.DBG.wideShadow) ? {} : { shadowCenter: backC.toArray(), shadowSize: 5.5 });
 
       // ------------------------------------------------------------ the clock (time sped up in the quick auscultation run)
-      clock.group.position.set(-4.0, 7.6 + 0.5, -6.9); clock.group.scale.setScalar(0.55);      // on the bedside table, beside the glass
+      clock.group.position.set(-3.05, 7.6 + 0.5, -6.25); clock.group.scale.setScalar(0.55);      // on the bedside table, beside the glass
       clock.group.lookAt(V(...C.back.pos));
       const clockScale = (tq) => K.ease.outBack(K.seg(tq, QUICK[0] - 0.25, QUICK[0])) * (1 - K.ease.inBack(K.seg(tq, QUICK[1], QUICK[1] + 0.3)));
       const clockSec = (tq) => 45 * K.seg(tq, QUICK[0], QUICK[1]);      // about 45 s of breaths shown in 8 s
