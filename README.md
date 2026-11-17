@@ -17,7 +17,8 @@ the GPU, at the series quality (1920×1080, 30 fps, 64 samples), with sound:
 - `out/resp3_back_full_captions.mp4` and `out/resp3_back_full_clean.mp4` (87 s)
 - `out/beats/resp3_back_beat1_sitting-forward_captions.mp4` … `beat8_lying-back_clean.mp4` (16 files)
 
-It prints the WebGL renderer it found (it should name your RTX 3060 Ti) and a running time estimate. Other commands:
+It renders beat by beat and keeps what it has finished, so if it is interrupted, run `npm start` again and it carries
+on from the next beat (`node render.mjs --force` starts over). It prints the WebGL renderer it found (it should name your RTX 3060 Ti) and a running time estimate. Other commands:
 `npm run beat3` (only beat 3), `npm run preview` (a quick low-sample pass into `preview/`), `npm run check` (the
 sound/picture checks below). If Chrome is not found, set `CHROME_PATH` to chrome.exe.
 
